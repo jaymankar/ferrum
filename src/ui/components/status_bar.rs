@@ -11,7 +11,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             " | {} items {}",
             // app.files.display(),
             app.files.len(),
-            if app.show_hidden { "| hidden: on" } else { "" }
+            if app.settings.show_hidden { "| hidden: on" } else { "" }
         ))
         .style(Style::default().fg(Color::White))
     };

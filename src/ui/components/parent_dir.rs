@@ -10,7 +10,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         .unwrap_or(app.path.clone());
 
     // list parent dir contents
-    let parent_files = explorer::list(&parent_path, &app.show_hidden);
+    let parent_files = explorer::list(&parent_path, &app.settings.show_hidden);
 
     // find current dir name to highlight it
     let current_name = app.path

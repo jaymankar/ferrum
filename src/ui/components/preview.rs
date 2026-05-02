@@ -6,9 +6,9 @@ use crate::fs::explorer;
 pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     let preview_text = explorer::preview(
         &app.path,
-        &app.state,
+        &app.list_state,
         &app.files,
-        &app.show_hidden
+        &app.settings.show_hidden,
     );
 
     let preview = Paragraph::new(preview_text)

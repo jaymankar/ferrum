@@ -1,5 +1,5 @@
 // fs/explorer.rs
-use std::{fs, io, path::PathBuf};
+use std::{fs, io, path::{ PathBuf}};
 
 use ratatui::widgets::ListState;
 
@@ -64,12 +64,23 @@ pub fn rename(
 }
 pub fn create_dir(path: &PathBuf, name: &str) -> io::Result<()> {
     let new_dir = path.join(name);
-    fs::create_dir_all(&new_dir)?;
 
+    // Safety Check: Avoid silent success if it already exists
+    if new_dir.exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("A directory named '{}' already exists", name),
+        ));
+    }
+
+    fs::create_dir_all(&new_dir)?;
     Ok(())
 }
+
 pub fn create_file(path: &PathBuf, name: &str) -> io::Result<()> {
     let new_file = path.join(name);
+
+    // Safety Check: File::create_new prevents overwrites automatically
     fs::File::create_new(&new_file)?;
     Ok(())
 }
@@ -94,6 +105,13 @@ pub fn preview(
     //       now shows contents of selected folder
     } else {
         fs::read_to_string(&selected).unwrap_or(String::from("[Binary file]"))
+    }
+}
+pub fn go_to_parent(current_dir:&PathBuf)-> PathBuf{
+    match current_dir.parent() {
+        Some(p ) =>p.to_path_buf(),
+        None => current_dir.clone()
+        
     }
 }
 

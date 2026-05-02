@@ -1,105 +1,150 @@
-// input/handler.rs
-use crate::app::state::{App, Mode};
-use crate::fs::explorer;
-use crossterm::event::KeyCode;
-use std::io;
+use crate::{
+    app::state::{App, AppError, AppMode, ConfirmTarget, InputTarget},
+    fs::explorer,
+    input::keymap::Action,
+};
 
-pub fn handle(app: &mut App, key: KeyCode) -> io::Result<()> {
-    // input popup mode
-    if matches!(app.mode, Mode::NewFile | Mode::NewDir | Mode::Rename) {
-        match key {
-            KeyCode::Enter => handle_input_confirm(app)?,
-            KeyCode::Esc => {
-                app.mode = Mode::Normal;
-                app.input_text.clear();
-            }
-            KeyCode::Char(c) => {
-                app.input_text.insert(app.cursor_pos, c);
-                app.cursor_pos -= 1
-            }
-            KeyCode::Backspace => {
-                if app.cursor_pos > 0 {
-                    app.input_text.remove(app.cursor_pos - 1);
-                    app.cursor_pos -= 1;
+impl App {
+    pub fn execute_input_action(&mut self) {
+        // Take the current mode out so we can read its data
+        let current_mode = std::mem::replace(&mut self.mode, AppMode::Normal);
+
+        if let AppMode::Input { target, buffer, .. } = current_mode {
+            // Evaluate the match to return the exact same type from all arms
+            let result = match target {
+                InputTarget::Rename => {
+                    explorer::rename(&self.files, &self.path, &buffer, &self.list_state)
+                }
+                InputTarget::CreateFile => {
+                    // ⚠️ Removed the semicolon at the end
+                    explorer::create_file(&self.path, &buffer)
+                }
+                InputTarget::CreateDir => {
+                    // ⚠️ Removed the semicolon at the end
+                    explorer::create_dir(&self.path, &buffer)
+                }
+            };
+
+            // Now both 'Ok' and 'Err' variants can be handled perfectly!
+            match result {
+                Ok(_) => {
+                    self.reload(); // Refresh screen files
+                    self.error = None;
+                }
+                Err(err) => {
+                    self.error = Some(AppError::Io(err.to_string()));
                 }
             }
-            KeyCode::Left => {
-                app.cursor_pos = app.cursor_pos.saturating_sub(1);
+        }
+    }
+    pub fn execute_confirm_action(&mut self) {
+        // Remove the current mode from self to safely extract its data
+        let current_mode = std::mem::replace(&mut self.mode, AppMode::Normal);
+
+        if let AppMode::Confirm { target, subject: _ } = current_mode {
+            match target {
+                ConfirmTarget::Delete { filename: _ } => {
+                    // Execute the file deletion logic
+                    match explorer::delete(&self.path, &self.files, &self.list_state) {
+                        Ok(_) => {
+                            self.reload();
+
+                            // Adjust list state if deleting the last item in the folder
+                            if let Some(selected) = self.list_state.selected() {
+                                if selected >= self.files.len() && !self.files.is_empty() {
+                                    self.list_state.select(Some(self.files.len() - 1));
+                                } else if self.files.is_empty() {
+                                    self.list_state.select(None);
+                                }
+                            }
+                            self.error = None;
+                        }
+                        Err(err) => {
+                            self.error = Some(AppError::Io(err.to_string()));
+                        }
+                    }
+                }
             }
-            KeyCode::Right => {
-                app.cursor_pos = (app.cursor_pos + 1).min(app.input_text.len());
+        }
+    }
+
+    pub fn execute_normal_action(&mut self, action: Action) {
+        match action {
+            Action::Quit => {
+                self.should_quit = true;
             }
+            Action::MoveUp => {
+                self.move_cursor_up();
+            }
+            Action::MoveDown => {
+                self.move_cursor_down();
+            }
+            Action::MoveBack => {
+                self.path = explorer::go_to_parent(&self.path);
+                self.reload();
+                self.list_state.select(Some(0));
+            }
+            Action::MoveForward => {
+                if let Some(i) = self.list_state.selected() {
+                    let selectesd = self.path.join(&self.files[i]);
+                    if selectesd.is_dir() {
+                        self.path = selectesd;
+                        self.files = explorer::list(&self.path, &self.settings.show_hidden);
+                        self.list_state.select(Some(0));
+                    }
+                }
+            }
+            Action::HiddenFile => {
+                self.settings.show_hidden = !self.settings.show_hidden;
+                self.reload();
+            }
+
+           Action::Rename => {
+                // 1. Correctly get the selected index from ListState
+                if let Some(index) = self.list_state.selected() {
+                    // 2. Safely extract that file from your files list
+                    if let Some(name) = self.files.get(index) {
+                        
+                        // 3. Switch to Input mode with the EXACT name of the selected file!
+                        self.mode = AppMode::Input {
+                            target: InputTarget::Rename,
+                            buffer: name.clone(), // This populates the buffer with the file name
+                            cursor: name.len(),   // This puts the cursor at the very end of the word
+                        };
+                    }
+                }
+            }
+            
+        
+            Action::Delete => {
+                if let Some(filename) = self.get_selected_filename() {
+                    // Switch to Confirm mode to ask the user "Are you sure?"
+                    self.mode = AppMode::Confirm {
+                        target: ConfirmTarget::Delete {
+                            filename: filename.clone(),
+                        },
+                        subject: format!("Delete '{}'?", filename),
+                    };
+                }
+            }
+
+            Action::CreateDir => {
+                // Switch to Input mode with an empty buffer and zeroed cursor
+                self.mode = AppMode::Input {
+                    target: InputTarget::CreateDir,
+                    buffer: String::new(),
+                    cursor: 0,
+                };
+            }
+            Action::CreateFile => {
+                self.mode = AppMode::Input {
+                    target: InputTarget::CreateFile,
+                    buffer: String::new(),
+                    cursor: 0,
+                };
+            }
+    
             _ => {}
         }
-        return Ok(());
     }
-
-    // delete confirm mode
-    if matches!(app.mode, Mode::Delete) {
-        match key {
-            KeyCode::Char('y') => {
-                explorer::delete(&app.path, &app.files, &app.state)?;
-                app.reload();
-                app.mode = Mode::Normal;
-            }
-            KeyCode::Char('n') => app.mode = Mode::Normal,
-            _ => {}
-        }
-        return Ok(());
-    }
-
-    // normal mode
-    match key {
-        KeyCode::Down => app.move_down(),
-        KeyCode::Up => app.move_up(),
-        KeyCode::Right => app.enter_dir(),
-        KeyCode::Left => app.go_up(),
-        KeyCode::Char('.') => app.toggle_hidden(),
-
-        KeyCode::Char('d') => app.mode = Mode::Delete,
-        KeyCode::Char('r') => {
-            app.mode = Mode::Rename;
-            app.input_text = app.files[app.state.selected().unwrap_or(0)].clone();
-        }
-        KeyCode::Char('f') => app.mode = Mode::NewFile,
-        KeyCode::Char('n') => app.mode = Mode::NewDir,
-        KeyCode::Char('q') => app.should_quit = true,
-        _ => {}
-    }
-
-    Ok(())
-}
-
-fn handle_input_confirm(app: &mut App) -> io::Result<()> {
-    if app.input_text.is_empty() {
-        return Ok(());
-    }
-
-    match app.mode {
-        Mode::NewDir => {
-            explorer::create_dir(&app.path, &app.input_text)?;
-            app.reload();
-        }
-        Mode::NewFile => match explorer::create_file(&app.path, &app.input_text) {
-            Ok(_) => {
-                app.reload();
-                app.error = None;
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
-                app.error = Some(format!("'{}' already exists", app.input_text));
-            }
-            Err(e) => {
-                app.error = Some(format!("Failed: {}", e));
-            }
-        },
-        Mode::Rename => {
-            explorer::rename(&app.files, &app.path, &app.input_text, &app.state)?;
-            app.reload();
-        }
-        _ => {}
-    }
-
-    app.mode = Mode::Normal;
-    app.input_text.clear();
-    Ok(())
 }

@@ -17,5 +17,5 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         .highlight_spacing(ratatui::widgets::HighlightSpacing::WhenSelected)
         .highlight_style(Style::default().fg(Color::Blue).bg(Color::LightMagenta).add_modifier(Modifier::BOLD | Modifier::ITALIC));
 
-    frame.render_stateful_widget(list, area, &mut app.state);
+    frame.render_stateful_widget(list, area, &mut app.list_state);
 }
