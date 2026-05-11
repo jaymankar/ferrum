@@ -4,35 +4,37 @@ use crate::{app::state::AppMode, input::keymap::KeyMap};
 
 use super::state::App;
 
-
-
 impl App {
     pub fn handle_event(&mut self, event: KeyEvent, keymap: &KeyMap) {
-        // ⚠️ FIX: Check if an error exists first. 
+        // ⚠️ FIX: Check if an error exists first.
         // If the user hits Esc, clear the error and return early!
-        if let Some(_) = &self.error {
+        if let Some(_) = &self.state.error {
             if event.code == KeyCode::Esc {
-                self.error = None;
+                self.state.error = None;
                 return;
             }
         }
 
-        match &mut self.mode {
+        match &mut self.state.mode {
             AppMode::Normal => {
                 if let Some(action) = keymap.get(&event) {
-                    self.error = None; // Reset any leftover error when performing a new action
+                    self.state.error = None; // Reset any leftover error when performing a new action
                     self.execute_normal_action(*action);
                 }
             }
 
-            AppMode::Input { target:_, buffer, cursor } => match event.code {
+            AppMode::Input {
+                target: _,
+                buffer,
+                cursor,
+            } => match event.code {
                 KeyCode::Enter => {
                     self.execute_input_action();
                 }
                 KeyCode::Esc => {
                     // Reset to normal mode and wipe out any text in the buffer
-                    self.mode = AppMode::Normal;
-                    self.error = None; 
+                    self.state.mode = AppMode::Normal;
+                    self.state.error = None;
                 }
                 KeyCode::Backspace => {
                     if *cursor > 0 {
@@ -52,40 +54,37 @@ impl App {
                     self.execute_confirm_action();
                 }
                 KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
-                    self.mode = AppMode::Normal;
-                    self.error = None;
+                    self.state.mode = AppMode::Normal;
+                    self.state.error = None;
                 }
                 _ => {}
             },
         }
     }
 
-
     pub fn move_cursor_up(&mut self) {
-        let i = match self.list_state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.files.len() - 1 // Wrap to bottom
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
+        let len = self.state.files.len();
+        if len == 0 {
+            return;
+        }
+        let next = match self.ui.list_state.selected() {
+            Some(0) | None => len - 1, // wrap
+            Some(i) => i - 1,
         };
-        self.list_state.select(Some(i));
+        self.ui.list_state.select(Some(next));
     }
 
+    /// Move cursor down, wrapping to the top.
     pub fn move_cursor_down(&mut self) {
-        let i = match self.list_state.selected() {
-            Some(i) => {
-                if i >= self.files.len() - 1 {
-                    0 // Wrap to top
-                } else {
-                    i + 1
-                }
-            }
+        let len = self.state.files.len();
+        if len == 0 {
+            return;
+        }
+        let next = match self.ui.list_state.selected() {
+            Some(i) if i + 1 >= len => 0, // wrap
+            Some(i) => i + 1,
             None => 0,
         };
-        self.list_state.select(Some(i));
+        self.ui.list_state.select(Some(next));
     }
 }

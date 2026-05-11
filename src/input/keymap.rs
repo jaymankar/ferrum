@@ -18,9 +18,10 @@ pub enum Action {
     CreateFile,
     CreateDir,
     HiddenFile,
+    Copy,
+    Cut,
+    Paste,
 }
-
-
 
 pub fn default_keymap() -> KeyMap {
     let mut map = HashMap::new();
@@ -34,7 +35,7 @@ pub fn default_keymap() -> KeyMap {
     map.insert(key(KeyCode::Right), Action::MoveForward);
     map.insert(key(KeyCode::Enter), Action::Enter);
     map.insert(key(KeyCode::Backspace), Action::Backspace);
-    
+
     // Vim-style
     map.insert(key(KeyCode::Char('k')), Action::MoveUp);
     map.insert(key(KeyCode::Char('j')), Action::MoveDown);
@@ -48,11 +49,14 @@ pub fn default_keymap() -> KeyMap {
     map.insert(key(KeyCode::Char('n')), Action::CreateDir);
     map.insert(key(KeyCode::Char('.')), Action::HiddenFile);
     map.insert(key(KeyCode::Char('q')), Action::Quit);
+    map.insert(key(KeyCode::Char('y')), Action::Copy);
+    map.insert(key(KeyCode::Char('x')), Action::Cut);
+    map.insert(key(KeyCode::Char('p')), Action::Paste);
 
     // Example of a modifier: Ctrl + c to quit
     map.insert(
-        KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL), 
-        Action::Quit
+        KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+        Action::Quit,
     );
 
     map // Return the map

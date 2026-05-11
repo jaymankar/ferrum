@@ -1,45 +1,85 @@
-// app/state.rs
 use crate::fs::explorer;
-use ratatui::widgets::ListState;
 use core::fmt;
-use std::path::PathBuf;
+use ratatui::widgets::ListState;
+use std::{io, path::PathBuf};
 
+// ─────────────────────────────────────────────
+//  Top-level App
+// ─────────────────────────────────────────────
+
+#[derive(Debug)]
 pub struct App {
-    // Navigation state
-    pub path: PathBuf,
-    pub files: Vec<String>,
+    pub state: AppState,
+    pub ui: UiState,
+}
+
+// ─────────────────────────────────────────────
+//  UI state  (view / interaction only)
+// ─────────────────────────────────────────────
+
+#[derive(Debug)]
+pub struct UiState {
+    /// Drives the ratatui List widget; single source of truth for selection.
     pub list_state: ListState,
-    pub selection: Selection,
+}
+
+// ─────────────────────────────────────────────
+//  Application state  (business logic only)
+// ─────────────────────────────────────────────
+
+#[derive(Debug)]
+pub struct AppState {
+    // Navigation
+    pub path: PathBuf,
+    pub files: Vec<FileEntry>,
 
     // Settings
     pub settings: AppSettings,
-    pub should_quit:bool,
+    pub should_quit: bool,
 
-    // Mode with context
+    // Clipboard
+    pub clipboard: Option<Clipboard>,
+
+    // Mode system
     pub mode: AppMode,
 
-    // Error
+    // Error handling
     pub error: Option<AppError>,
 }
 
-pub enum Selection {
-    None,
-    Single(usize),
-    Multiple(Vec<usize>), // for future bulk operations
+// ─────────────────────────────────────────────
+//  Domain types
+// ─────────────────────────────────────────────
+
+#[derive(Debug, Clone)]
+pub struct FileEntry {
+    pub name: String,
+    pub path: PathBuf,
+    pub is_dir: bool,
 }
 
+#[derive(Debug)]
+pub struct Clipboard {
+    pub paths: PathBuf,
+    pub mode: ClipboardMode,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum ClipboardMode {
+    Copy,
+    // Paths are deleted on paste, not on copy.
+    Cut,
+}
+
+#[derive(Debug)]
 pub struct AppSettings {
     pub show_hidden: bool,
-    // pub sort_by: SortMode, // ← add this
 }
 
-// pub enum SortMode {
-//     Name,
-//     Size,
-//     Date,
-// }
+// ─────────────────────────────────────────────
+//  Mode system
+// ─────────────────────────────────────────────
 
-// ✅ Each mode carries its own data
 #[derive(Debug, PartialEq, Eq)]
 pub enum AppMode {
     Normal,
@@ -52,9 +92,8 @@ pub enum AppMode {
 
     Confirm {
         target: ConfirmTarget,
-        subject: String, // ← ADDED: what are we confirming?
+        subject: String,
     },
-
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -66,13 +105,14 @@ pub enum InputTarget {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ConfirmTarget {
-    Delete {
-        filename: String, // ← ADDED: deleting what?
-    },
+    Delete { filename: String },
 }
 
-// ✅ Proper error type
+// ─────────────────────────────────────────────
+//  Error system
+// ─────────────────────────────────────────────
 
+#[derive(Debug)]
 pub enum AppError {
     FileExists(String),
     PermissionDenied(String),
@@ -81,67 +121,90 @@ pub enum AppError {
     Io(String),
 }
 
-// 1. Convert your error variants into printable strings
+impl AppError {
+    /// Map a raw `io::Error` to a typed `AppError` using the name/path
+    /// that was involved in the operation so error messages stay useful.
+    pub fn from_io(err: io::Error, name: &str) -> Self {
+        match err.kind() {
+            io::ErrorKind::AlreadyExists => Self::FileExists(name.to_string()),
+            io::ErrorKind::PermissionDenied => Self::PermissionDenied(name.to_string()),
+            io::ErrorKind::NotFound => Self::NotFound(name.to_string()),
+            _ => Self::Io(err.to_string()),
+        }
+    }
+}
+
 impl fmt::Display for AppError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::FileExists(name) => write!(f, "'{}' already exists", name),
-            Self::PermissionDenied(path) => write!(f, "Permission denied: {}", path),
-            Self::InvalidName(name) => write!(f, "Invalid name: '{}'", name),
-            Self::NotFound(path) => write!(f, "Not found: {}", path),
-            Self::Io(msg) => write!(f, "{}", msg),
+            Self::FileExists(name) => write!(f, "'{name}' already exists"),
+            Self::PermissionDenied(path) => write!(f, "Permission denied: {path}"),
+            Self::InvalidName(name) => write!(f, "Invalid name: '{name}'"),
+            Self::NotFound(path) => write!(f, "Not found: {path}"),
+            Self::Io(msg) => write!(f, "{msg}"),
         }
     }
 }
 
-// 2. Add Debug (Required for standard Error trait)
-impl fmt::Debug for AppError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AppError: {}", self)
-    }
-}
-
-// 3. Finally, implement the actual Error trait
 impl std::error::Error for AppError {}
 
-impl App {
-    pub fn get_selected_filename(&self) -> Option<&String> {
-        match self.selection {
-            Selection::Single(i) if i < self.files.len() => Some(&self.files[i]),
-            _ => None,
-        }
-    }
-}
+// ─────────────────────────────────────────────
+//  App implementation
+// ─────────────────────────────────────────────
 
 impl App {
+    /// Create a new App, loading the current working directory.
     pub fn new() -> Self {
         let path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
-        let show_hidden_files = false;
-        let should_quit = false;
 
-        let files = explorer::list(&path, &show_hidden_files);
-        let mut list_state = ListState::default();
-        list_state.select(Some(0));
-
-        Self {
-            path,
-            files,
-            list_state,
-            should_quit,
-            selection: Selection::Single(0),
-            settings: AppSettings {
-                show_hidden: show_hidden_files,
-                // sort_by: SortMode::Name,
-            
+        // Build with empty files; reload() fills them in.
+        let mut app = Self {
+            state: AppState {
+                path,
+                files: Vec::new(),
+                settings: AppSettings { show_hidden: false },
+                should_quit: false,
+                clipboard: None,
+                mode: AppMode::Normal,
+                error: None,
             },
+            ui: UiState {
+                list_state: ListState::default(),
+            },
+        };
 
-            
-            mode: AppMode::Normal,
-            error: None,
-        }
+        app.reload();
+        app
     }
 
+    /// Reload directory listing.
+    /// Preserves the cursor position where possible instead of always
+    /// jumping back to the top.
     pub fn reload(&mut self) {
-        self.files = explorer::list(&self.path, &self.settings.show_hidden);
+        let previous = self.ui.list_state.selected();
+
+        self.state.files =
+            explorer::list(&self.state.path, self.state.settings.show_hidden).unwrap_or_default();
+
+        let new_index = match previous {
+            // Keep cursor where it was if that index still exists.
+            Some(i) if i < self.state.files.len() => i,
+            // Clamp to last item if the list shrank.
+            _ if !self.state.files.is_empty() => 0,
+            // Directory is empty.
+            _ => {
+                self.ui.list_state.select(None);
+                return;
+            }
+        };
+
+        self.ui.list_state.select(Some(new_index));
+    }
+
+    /// Safe, single access point for the currently selected file.
+    /// All action code goes through here — never index `files` directly.
+    pub fn selected_file(&self) -> Option<&FileEntry> {
+        let i = self.ui.list_state.selected()?;
+        self.state.files.get(i)
     }
 }

@@ -17,7 +17,7 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-pub fn main_layout(area: Rect) -> (Rect, Rect, Rect, Rect, Rect) {
+pub fn main_layout(area: Rect) -> ( Rect, Rect, Rect, Rect) {
     let vertical = Layout::vertical([
         Constraint::Length(1),
         Constraint::Min(0),
@@ -25,13 +25,12 @@ pub fn main_layout(area: Rect) -> (Rect, Rect, Rect, Rect, Rect) {
     ])
     .split(area);
 
-    let horizontal = Layout::horizontal([
-        Constraint::Percentage(18),   // parent dir
-        Constraint::Percentage(45),   // current dir
-        Constraint::Percentage(37),   // preview
+    let horizontal = Layout::horizontal([ 
+        Constraint::Percentage(50),   // current dir
+        Constraint::Percentage(50),   // preview
     ])
     .split(vertical[1]);
 
-    (vertical[0],horizontal[0], horizontal[1], horizontal[2], vertical[2])
+    (vertical[0], horizontal[0], horizontal[1], vertical[2])
     // (parent,      current,       preview,        status)
 }

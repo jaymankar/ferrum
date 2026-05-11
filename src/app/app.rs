@@ -21,7 +21,7 @@ pub fn run(terminal: &mut DefaultTerminal) -> io::Result<()> {
         }
 
         // 3. Check if the user opted to quit
-        if matches!(app.mode, AppMode::Normal) && app.should_quit {
+        if matches!(app.state.mode, AppMode::Normal) && app.state.should_quit {
             break;
         }
         
