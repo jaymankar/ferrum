@@ -60,6 +60,7 @@ cargo run
 | `/` | Command mode |
 | `q` | Quit |
 
+
 ---
 
 ## Project Structure
@@ -101,7 +102,6 @@ src/
 
 ## Roadmap
 
-- [ ] Copy / paste
 - [ ] Syntax highlighting in preview
 - [ ] File size and date in list
 - [ ] Bookmarks
