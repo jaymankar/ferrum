@@ -60,8 +60,8 @@ cargo run
 | `/` | Command mode |
 | `q` | Quit |
 | `y` | Copy |
-| 'x' | Cut  |
-| 'p' | paste |
+| `x` | Cut  |
+| `p` | paste |
 
 
 
