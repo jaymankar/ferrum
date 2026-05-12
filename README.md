@@ -59,7 +59,7 @@ cargo run
 | `.` | Toggle hidden files |
 | `/` | Command mode |
 | `q` | Quit |
-| 'y' | Copy |
+| `y` | Copy |
 | 'x' | Cut  |
 | 'p' | paste |
 
