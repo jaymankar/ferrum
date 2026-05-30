@@ -1,7 +1,7 @@
 use crate::fs::explorer;
 use core::fmt;
 use ratatui::widgets::ListState;
-use std::{io, path::PathBuf};
+use std::{io, path::PathBuf, time::SystemTime};
 
 // ─────────────────────────────────────────────
 //  Top-level App
@@ -40,6 +40,9 @@ pub struct AppState {
     // Clipboard
     pub clipboard: Option<Clipboard>,
 
+    //Sort
+    pub sort:SortMode,
+
     // Mode system
     pub mode: AppMode,
 
@@ -56,6 +59,7 @@ pub struct FileEntry {
     pub name: String,
     pub path: PathBuf,
     pub is_dir: bool,
+    pub modify: SystemTime,
 }
 
 #[derive(Debug)]
@@ -94,6 +98,14 @@ pub enum AppMode {
         target: ConfirmTarget,
         subject: String,
     },
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum SortMode{
+    FileName,
+    Size,
+    Date,
+
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -166,6 +178,7 @@ impl App {
                 should_quit: false,
                 clipboard: None,
                 mode: AppMode::Normal,
+                sort:SortMode::FileName,
                 error: None,
             },
             ui: UiState {

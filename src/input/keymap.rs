@@ -21,6 +21,7 @@ pub enum Action {
     Copy,
     Cut,
     Paste,
+    Open,
 }
 
 pub fn default_keymap() -> KeyMap {
@@ -52,6 +53,8 @@ pub fn default_keymap() -> KeyMap {
     map.insert(key(KeyCode::Char('y')), Action::Copy);
     map.insert(key(KeyCode::Char('x')), Action::Cut);
     map.insert(key(KeyCode::Char('p')), Action::Paste);
+    map.insert(key(KeyCode::Char('o')), Action::Open);
+
 
     // Example of a modifier: Ctrl + c to quit
     map.insert(

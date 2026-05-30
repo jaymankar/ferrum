@@ -65,14 +65,12 @@ fn draw_input_popup(frame: &mut Frame, app: &App) {
         InputTarget::Rename     => " Rename ",
     };
 
-    // char-safe split — prevents panic on multibyte characters
-    let before: String = buffer.chars().take(*cursor).collect();
-    let after: String  = buffer.chars().skip(*cursor).collect();
-    let prompt = format!("Name: {before}|{after}");
+    let prefix = "Name: ";
+    let display = format!("{prefix}{buffer}");
 
     let area = centered_rect(60, 20, frame.area());
 
-    let popup = Paragraph::new(prompt)
+    let popup = Paragraph::new(display)
         .block(
             Block::bordered()
                 .title(title)
@@ -82,6 +80,15 @@ fn draw_input_popup(frame: &mut Frame, app: &App) {
 
     frame.render_widget(Clear, area);
     frame.render_widget(popup, area);
+
+    // place the real terminal cursor at the correct position
+    frame.set_cursor_position(Position {
+        // area.x + 1 skips the left border
+        // prefix.len() is "Name: " offset
+        x: area.x + 1 + prefix.len() as u16 + *cursor as u16,
+        // area.y + 1 skips the top border
+        y: area.y + 1,
+    });
 }
 
 fn draw_error_popup(frame: &mut Frame, error: &AppError) {
