@@ -55,6 +55,7 @@ pub fn default_keymap() -> KeyMap {
     map.insert(key(KeyCode::Char('x')), Action::Cut);
     map.insert(key(KeyCode::Char('p')), Action::Paste);
     map.insert(key(KeyCode::Char('o')), Action::Open);
+    map.insert(key(KeyCode::Enter), Action::Open);
 
     map.insert(key(KeyCode::Char(',')), Action::Leader(',')); // sort
     map.insert(key(KeyCode::Char('g')), Action::Leader('g')); // go to

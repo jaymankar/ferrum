@@ -149,6 +149,19 @@ impl App {
                 }
             }
 
+            Action::Open => {
+                if let Some(file) = self.selected_file() {
+                    if !file.is_dir {
+                        std::process::Command::new("xdg-open")
+                            .arg(&file.path)
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .spawn()
+                            .ok();
+                    }
+                }
+            }
+
             Action::Delete => {
                 if let Some(file) = self.selected_file() {
                     let name = file.name.clone();

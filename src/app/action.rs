@@ -20,7 +20,7 @@ impl App {
                     self.execute_normal_action(*action);
                 };
             }
-            #[warn(unused_variables)]
+
             AppMode::Leader { menu } => {
                 let old_menu = std::mem::replace(&mut self.state.mode, AppMode::Normal);
                 if let AppMode::Leader { menu } = old_menu {
