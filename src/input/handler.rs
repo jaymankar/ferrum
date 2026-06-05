@@ -1,5 +1,8 @@
 use crate::{
-    app::state::{App, AppError, AppMode, Clipboard, ClipboardMode, ConfirmTarget, InputTarget},
+    app::state::{
+        App, AppError, AppMode, Clipboard, ClipboardMode, ConfirmTarget, InputTarget, LeaderMenu,
+        SortMode,
+    },
     fs::explorer,
     input::keymap::Action,
 };
@@ -75,6 +78,29 @@ impl App {
                     }
                 }
             }
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    //  Leader mode
+    // ─────────────────────────────────────────────
+    pub fn execute_leader_action(&mut self, menu: LeaderMenu, key: char) {
+        match menu {
+            LeaderMenu::Sort => match key {
+                'n' => {
+                    self.state.sort = SortMode::FileName;
+                    self.reload();
+                }
+                's' => {
+                    self.state.sort = SortMode::Size;
+                    self.reload();
+                }
+                'd' => {
+                    self.state.sort = SortMode::Date;
+                    self.reload();
+                }
+                _ => {}
+            },
         }
     }
 
@@ -157,8 +183,8 @@ impl App {
                         paths: file.path.clone(),
                         mode: ClipboardMode::Copy,
                     });
+                    self.state.error = None;
                 }
-                self.state.error = None;
             }
 
             Action::Cut => {
@@ -207,6 +233,14 @@ impl App {
                         ));
                     }
                 }
+            }
+
+            Action::Leader(k) => {
+                let menu = match k {
+                    ',' => LeaderMenu::Sort,
+                    _ => return,
+                };
+                self.state.mode = AppMode::Leader { menu: { menu } }
             }
 
             _ => {}

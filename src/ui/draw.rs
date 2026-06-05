@@ -1,12 +1,13 @@
 use super::components;
 use super::layout;
 use super::layout::centered_rect;
+use crate::app::state::LeaderMenu;
 use crate::app::state::{App, AppError, AppMode, ConfirmTarget, InputTarget};
 use ratatui::{
+    Frame,
     prelude::*,
     symbols::border,
     widgets::{Block, Clear, Paragraph},
-    Frame,
 };
 
 pub fn draw(frame: &mut Frame, app: &mut App) {
@@ -21,20 +22,22 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 
     match &app.state.mode {
         AppMode::Confirm { .. } => draw_delete_popup(frame, app),
-        AppMode::Input  { .. } => draw_input_popup(frame, app),
+        AppMode::Input { .. } => draw_input_popup(frame, app),
         AppMode::Normal => {
             if let Some(ref err) = app.state.error {
                 draw_error_popup(frame, err);
             }
         }
+        AppMode::Leader { .. } => draw_leader_popup(frame, app),
     }
 }
 
 fn draw_delete_popup(frame: &mut Frame, app: &App) {
     let filename = match &app.state.mode {
-        AppMode::Confirm { target: ConfirmTarget::Delete { filename }, .. } => {
-            filename.as_str()
-        }
+        AppMode::Confirm {
+            target: ConfirmTarget::Delete { filename },
+            ..
+        } => filename.as_str(),
         _ => "unknown",
     };
 
@@ -55,14 +58,19 @@ fn draw_delete_popup(frame: &mut Frame, app: &App) {
 }
 
 fn draw_input_popup(frame: &mut Frame, app: &App) {
-    let AppMode::Input { target, buffer, cursor } = &app.state.mode else {
+    let AppMode::Input {
+        target,
+        buffer,
+        cursor,
+    } = &app.state.mode
+    else {
         return;
     };
 
     let title = match target {
         InputTarget::CreateFile => " Create File ",
-        InputTarget::CreateDir  => " Create Directory ",
-        InputTarget::Rename     => " Rename ",
+        InputTarget::CreateDir => " Create Directory ",
+        InputTarget::Rename => " Rename ",
     };
 
     let prefix = "Name: ";
@@ -71,11 +79,7 @@ fn draw_input_popup(frame: &mut Frame, app: &App) {
     let area = centered_rect(60, 20, frame.area());
 
     let popup = Paragraph::new(display)
-        .block(
-            Block::bordered()
-                .title(title)
-                .border_set(border::ROUNDED),
-        )
+        .block(Block::bordered().title(title).border_set(border::ROUNDED))
         .style(Style::default().fg(Color::Green));
 
     frame.render_widget(Clear, area);
@@ -102,6 +106,23 @@ fn draw_error_popup(frame: &mut Frame, error: &AppError) {
                 .border_set(border::ROUNDED),
         )
         .style(Style::default().fg(Color::LightRed))
+        .centered();
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(popup, area);
+}
+fn draw_leader_popup(frame: &mut Frame, app: &App) {
+    let AppMode::Leader { menu } = &app.state.mode else {
+        return;
+    };
+    let (title, hints) = match menu {
+        LeaderMenu::Sort => (" Sort ", "n → name    s → size    d → date"),
+    };
+
+    let area = centered_rect(45, 15, frame.area());
+    let popup = Paragraph::new(hints)
+        .block(Block::bordered().title(title).border_set(border::ROUNDED))
+        .style(Style::default().fg(Color::Yellow))
         .centered();
 
     frame.render_widget(Clear, area);

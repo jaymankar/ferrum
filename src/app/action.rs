@@ -1,9 +1,7 @@
-use crossterm::event::{KeyCode, KeyEvent};
-
-use crate::{app::state::AppMode, input::keymap::KeyMap};
-
 use super::state::App;
-
+use crate::app::state::AppMode;
+use crate::input::keymap::KeyMap;
+use crossterm::event::{KeyCode, KeyEvent};
 impl App {
     pub fn handle_event(&mut self, event: KeyEvent, keymap: &KeyMap) {
         // ⚠️ FIX: Check if an error exists first.
@@ -20,6 +18,19 @@ impl App {
                 if let Some(action) = keymap.get(&event) {
                     self.state.error = None; // Reset any leftover error when performing a new action
                     self.execute_normal_action(*action);
+                };
+            }
+            #[warn(unused_variables)]
+            AppMode::Leader { menu } => {
+                let old_menu = std::mem::replace(&mut self.state.mode, AppMode::Normal);
+                if let AppMode::Leader { menu } = old_menu {
+                    match event.code {
+                        KeyCode::Esc => {}
+                        KeyCode::Char(c) => {
+                            self.execute_leader_action(menu, c);
+                        }
+                        _ => {}
+                    }
                 }
             }
 
@@ -43,20 +54,20 @@ impl App {
                     }
                 }
 
-                KeyCode::Left =>{
-                    if *cursor > 0{
+                KeyCode::Left => {
+                    if *cursor > 0 {
                         *cursor -= 1;
                     }
                 }
                 KeyCode::Right => {
-                    if *cursor < buffer.len(){
-                        *cursor +=1;
+                    if *cursor < buffer.len() {
+                        *cursor += 1;
                     }
                 }
-                KeyCode::Home =>{
+                KeyCode::Home => {
                     *cursor = 0;
                 }
-                KeyCode::End =>{
+                KeyCode::End => {
                     *cursor = buffer.len();
                 }
                 KeyCode::Char(c) => {

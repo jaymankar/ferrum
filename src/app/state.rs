@@ -41,7 +41,7 @@ pub struct AppState {
     pub clipboard: Option<Clipboard>,
 
     //Sort
-    pub sort:SortMode,
+    pub sort: SortMode,
 
     // Mode system
     pub mode: AppMode,
@@ -59,6 +59,7 @@ pub struct FileEntry {
     pub name: String,
     pub path: PathBuf,
     pub is_dir: bool,
+    pub size: u64,
     pub modify: SystemTime,
 }
 
@@ -98,14 +99,20 @@ pub enum AppMode {
         target: ConfirmTarget,
         subject: String,
     },
+    Leader {
+        menu: LeaderMenu,
+    },
+}
+#[derive(Debug, PartialEq, Eq)]
+pub enum LeaderMenu {
+    Sort,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum SortMode{
+pub enum SortMode {
     FileName,
     Size,
     Date,
-
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -178,7 +185,7 @@ impl App {
                 should_quit: false,
                 clipboard: None,
                 mode: AppMode::Normal,
-                sort:SortMode::FileName,
+                sort: SortMode::FileName,
                 error: None,
             },
             ui: UiState {
@@ -198,6 +205,8 @@ impl App {
 
         self.state.files =
             explorer::list(&self.state.path, self.state.settings.show_hidden).unwrap_or_default();
+
+        explorer::sort(&mut self.state.files, &self.state.sort);
 
         let new_index = match previous {
             // Keep cursor where it was if that index still exists.
